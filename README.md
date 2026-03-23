@@ -24,6 +24,16 @@ On first usage or if the module can't connect to the local WiFi-network it start
 
 The serial signal comes from Pin TXD1 (GPIO2, D4) of the NodeMCU with 9600 baud. Connect the audioplug to 5V, GND and Signal as described in the assembly instructions of the clock and configure the timereceiver of the clock for GPS-Format and 9600 Baud.
  
+**Frank 2 (2011 Edition) compatibility**
+
+After a bit of information from Pete at PV Electronics I was able to get my Frank 2 "2011 Edition" clock working with this project. The required modification is at the clock PCB level:
+
+- Remove transistor Q18 (MPSA42).
+- Remove resistor R12 (10K).
+- Add a jumper from R13 to the point where the collector of Q18 (5.2 V) used to be.
+
+Pete explained that Q18 inverts the input logic to support the br335 GPS module used in that edition. When Q18 is present the ESP output becomes inverted and the clock will not accept the data. With Q18 and R12 removed and the jumper added, wire the ESP's TX (GPIO2) to the clock's GPS IN (pin 5). With these changes the Frank 2 (2011 Edition) successfully updates time via NTP through this project.
+ 
 ## Software
 Because the NodeMCU is Arduino-compatible it can be programmed with any IDE for Arduino. Beside the Code-file propagated here there are some Standard-Arduino-libraries an some special libraries necessary and must be imported and activated how described in the used IDE.
 ##### Standard libraries
