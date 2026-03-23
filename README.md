@@ -11,8 +11,8 @@ The company [PV Electronics](https://www.pvelectronics.co.uk) from UK sells nice
 
 Unfortunately these clocks have only a crystal for time accuracy and no DST-automatic. To get the exact time you can buy a [NTP-client](https://www.pvelectronics.co.uk/index.php?main_page=product_info&cPath=10&products_id=188) from the same company for $40 or you make one by yourself for $2 and with better features. 
 ## Function
-The FakeGPS requests the local Time from a NTP-Server and the timezone offset from [IP-API](http://www.ip-api.com) over WiFi and Internet and generates a GPRMC-Message in the GPS-Format NMEA-0183 as required from the Clock. 
-The local timezone is retrieved from the public IP. If you're using a foreign Proxy this will cause a wrong timezone. In this case use a fix timezone entry as described in the [IPAPI-Doc](https://www.ip-api.com/docs/api:newline_separated) at line 25 in TimeClient.cpp.
+The FakeGPS requests local time from an NTP server and generates a GPRMC message in the GPS NMEA-0183 format required by the clock.
+This version no longer performs IP-based timezone detection. Instead, the timezone must be explicitly set (hardcoded) in `TimeClient.cpp`. Using a timezone name (for example `Europe/Berlin`) is required so that DST transitions are handled correctly — a fixed numeric offset will not adjust for DST.
 
 The Program generates a timestamp in local time considering the DST-state. So the clock can be set on a UTC-difference of 0 and don't need any configuration or switching for DST on the clock.
 
@@ -37,3 +37,12 @@ Because the NodeMCU is Arduino-compatible it can be programmed with any IDE for 
 	* ESP8266WiFi
 * [WiFiManager](https://github.com/tzapu/WiFiManager)
 * [NTPClient](https://github.com/arduino-libraries/NTPClient)
+* `WiFiClient`
+* `ESP8266HTTPClient`
+* `ArduinoJson` (for parsing IP API responses)
+* `WiFiUdp` (used by NTP client)
+* `ezTime` (for timezone handling and DST support — https://github.com/ropg/ezTime)
+
+## Changes / Notes
+- **Timezone is now required and hardcoded:** IP-based timezone detection (via ip-api/api-ip) has been removed. You must set the timezone in `TimeClient.cpp` before deploying the device. Use a timezone name (for example `Europe/Berlin`) so DST is applied automatically by the `ezTime` library.
+- **Reason:** The IP-based lookup was removed after it caused reliability issues (IP blocking during testing). Hardcoding the timezone ensures reliable, predictable local time (including DST) without relying on external IP lookup services.

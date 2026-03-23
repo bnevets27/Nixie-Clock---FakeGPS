@@ -19,10 +19,16 @@ DoubleResetDetector drd(DRD_TIMEOUT, DRD_ADDRESS);
 
 //=== NTP CLIENT ===
 #include "TimeClient.h"
+#include <ezTime.h>
 
 #define DEBUG 1
 
-const char *geo_location_api = "http://www.ip-api.com/line/?fields=offset";
+// Set your timezone location name for ezTime (IANA tz database)
+// Example: "America/New_York"
+const char *timezone_location = "America/New_York";
+
+static Timezone tz;
+static bool tzConfigured = false;
 
 HTTPClient http;
 WiFiClient wifiClient;
@@ -123,55 +129,49 @@ void TimeClient::Setup(void)
 
 	drd.stop();
 	delay(3000);
+
+	// configure ezTime timezone using provided location name (required)
+	if (strlen(timezone_location) > 0 && !tzConfigured)
+	{
+		if (tz.setLocation(timezone_location))
+		{
+			tzConfigured = true;
+			if (DEBUG) Serial.print("ezTime timezone set to: ");
+			if (DEBUG) Serial.println(timezone_location);
+		}
+		else
+		{
+			if (DEBUG) Serial.print("Failed to set ezTime location: ");
+			if (DEBUG) Serial.println(timezone_location);
+			if (DEBUG) Serial.println("No fallback configured — TimeClient will not provide local time.");
+		}
+	}
 }
 
 void TimeClient::AskCurrentEpoch()
 {
-	int httpCode;
-	int offset = 0;
+	// ezTime-only: convert NTP epoch (UTC) to local epoch using ezTime (handles DST)
+	ntpClient.update();
+	if (date_time = ntpClient.getEpochTime()) // get NTP-time
+	{
+		if (!tzConfigured)
+		{
+			// If tz not configured we refuse to return incorrect local time
+			if (DEBUG) Serial.println("ezTime not configured — skipping local time conversion.");
+			error_getTime = false;
+			return;
+		}
+		time_t local = tz.tzTime((time_t)date_time, UTC_TIME);
+		date_time = (unsigned long)local;
+		error_getTime = true;
+	}
+	else
+	{
+		error_getTime = false;
+	}
 
 	if (DEBUG)
-		Serial.println("Retrieving timezone offset");
-
-	http.begin(wifiClient, geo_location_api);
-	httpCode = http.GET();
-
-	payload = "";
-	if (httpCode > 0)
-	{
-		payload = http.getString();
-	}
-	http.end();
-
-	if (DEBUG)
-		Serial.println(payload.c_str());
-
-	if (payload.length())
-	{
-		auto error = (sscanf(payload.c_str(), "%d", &offset) != 1);
-		if (error)
-		{
-			if (DEBUG)
-				Serial.println("scan timezone offset failed");
-			offset = 0;
-		}
-		else
-		{
-//			ntpClient.offset = offset;
-			ntpClient.update();
-			if (date_time = ntpClient.getEpochTime()) // get NTP-time
-			{
-				date_time += offset + 1;
-				error_getTime = true;
-			}
-			else
-			{
-				error_getTime = false;
-			}
-			if (DEBUG)
-				Serial.println(date_time);
-		}
-	}
+		Serial.println(date_time);
 }
 
 unsigned long TimeClient::ReadCurrentEpoch()
@@ -257,3 +257,4 @@ void TimeClient::PrintTime()
 	Serial.println(ss); // print the second
 #endif
 }
+S
